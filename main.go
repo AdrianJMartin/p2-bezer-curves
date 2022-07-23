@@ -38,8 +38,7 @@ func main() {
 		}
 
 		for _, p := range pts {
-			rl.DrawCircle(int32(p.X), int32(p.Y), 5, dotCol)
-
+			rl.DrawCircleV(rl.Vector2{X: float32(p.X), Y: float32(p.Y)}, 5.0, dotCol)
 		}
 
 		rl.EndDrawing()
