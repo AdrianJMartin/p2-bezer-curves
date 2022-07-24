@@ -14,10 +14,15 @@ func main() {
 	rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "raylib [core] example - basic window")
 	rl.SetTargetFPS(60)
 
-	s := Point{X: 100, Y: 100}
-	e := Point{X: 700, Y: 350}
+	s := rl.Vector2{X: 100, Y: 100}
+	cp := rl.Vector2{X: 700, Y: 100}
+	e := rl.Vector2{X: 700, Y: 350}
 
-	pts := linearBezier(s, e, 10)
+	var steps int32 = 10
+	var line_thick float32 = 5.0
+
+	pts_lb := linearBezier(s, e, steps)
+	pts_qb := quadraticBezier(s, cp, e, steps)
 
 	dotCol := rl.Red
 	dotCol.A = 0xAA
@@ -27,18 +32,20 @@ func main() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.LightGray)
 
-		for i := 0; i < 10-1; i++ {
-			rl.DrawLine(pts[i].X, pts[i].Y, pts[i+1].X, pts[i+1].Y, rl.Black)
-			rl.DrawLineEx(
-				rl.Vector2{X: float32(pts[i].X), Y: float32(pts[i].Y)},
-				rl.Vector2{X: float32(pts[i+1].X), Y: float32(pts[i+1].Y)},
-				3.0,
-				rl.Black,
-			)
+		for i := 0; i < 10; i++ {
+			rl.DrawLineEx(s, e, 3.0, rl.Black)
 		}
 
-		for _, p := range pts {
-			rl.DrawCircleV(rl.Vector2{X: float32(p.X), Y: float32(p.Y)}, 5.0, dotCol)
+		for _, p := range pts_lb {
+			rl.DrawCircleV(p, line_thick, dotCol)
+		}
+
+		for i := 0; i < 10; i++ {
+			rl.DrawLineEx(pts_qb[i], pts_qb[i+1], 3.0, rl.Blue)
+		}
+
+		for _, p := range pts_qb {
+			rl.DrawCircleV(p, line_thick, dotCol)
 		}
 
 		rl.EndDrawing()
@@ -47,52 +54,47 @@ func main() {
 	rl.CloseWindow()
 }
 
-type Point struct {
-	X int32
-	Y int32
-}
-
-type PointF struct {
-	X float64
-	Y float64
-}
-
-func (pf *PointF) FromPoint(p Point) {
-	pf.X = float64(p.X)
-	pf.Y = float64(p.Y)
-}
-
-func (p1 PointF) sub(p2 PointF) PointF {
-	return PointF{X: p1.X - p2.X, Y: p1.Y - p2.Y}
-}
-
-func (p1 PointF) mul(v float64) PointF {
-	return PointF{X: p1.X * v, Y: p1.Y * v}
-}
-
-func (p1 PointF) add(p2 PointF) PointF {
-	return PointF{X: p1.X + p2.Y, Y: p1.Y + p2.Y}
-}
-
-func linearBezier(s Point, e Point, nSteps int) []Point {
+func linearBezier(s rl.Vector2, e rl.Vector2, nSteps int32) []rl.Vector2 {
 	// a straight line! basically learp
 
-	pts := make([]Point, nSteps)
+	pts := make([]rl.Vector2, nSteps)
 
-	var sp PointF
-	sp.FromPoint(s)
+	step := 1.0 / float32(nSteps)
+	var i int32
 
-	var ep PointF
-	ep.FromPoint(e)
+	for i = 0; i < nSteps; i++ {
 
-	d := ep.sub(sp)
+		a := float32(i) * step
 
-	step := 1.0 / float64(nSteps)
+		b := rl.Vector2{X: a, Y: a}
+		c := rl.Vector2{X: 1.0 - a, Y: 1.0 - a}
 
-	for i := 0; i < nSteps; i++ {
-		pf := d.mul(float64(i) * step).add(sp)
-		pts[i] = Point{X: int32(pf.X), Y: int32(pf.Y)}
+		pts[i] = rl.Vector2Add(rl.Vector2Multiply(s, c), rl.Vector2Multiply(e, b))
 	}
+
+	return pts
+}
+
+func quadraticBezier(p0, p1, p2 rl.Vector2, nSteps int32) []rl.Vector2 {
+
+	// a straight line! basically learp
+
+	pts := make([]rl.Vector2, nSteps+1)
+
+	step := 1.0 / float32(nSteps)
+	var i int32
+
+	for i = 0; i < nSteps; i++ {
+		t := float32(i) * step
+
+		x := p1.X + (1-t)*(1-t)*(p0.X-p1.X) + t*t*(p2.X-p1.X)
+		y := p1.Y + (1-t)*(1-t)*(p0.Y-p1.Y) + t*t*(p2.Y-p1.Y)
+
+		pts[i] = rl.Vector2{X: x, Y: y}
+
+	}
+
+	pts[nSteps] = p2
 
 	return pts
 }
