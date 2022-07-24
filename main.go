@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const SCREEN_WIDTH = 800
-const SCREEN_HEIGHT = 450
+const SCREEN_WIDTH = 600
+const SCREEN_HEIGHT = 600
 
 func main() {
 
@@ -14,15 +16,12 @@ func main() {
 	rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "raylib [core] example - basic window")
 	rl.SetTargetFPS(60)
 
-	s := rl.Vector2{X: 100, Y: 100}
-	cp := rl.Vector2{X: 700, Y: 100}
-	e := rl.Vector2{X: 700, Y: 350}
+	const BEZIER_CURVE_STEPS = 10
 
-	var steps int32 = 10
-	var line_thick float32 = 5.0
-
-	pts_lb := linearBezier(s, e, steps)
-	pts_qb := quadraticBezier(s, cp, e, steps)
+	curveList := []drawable{
+		CreateLinearBezierCurve(rl.Vector2{X: 100, Y: 100}, rl.Vector2{X: 200, Y: 200}, BEZIER_CURVE_STEPS),
+		CreateQuadraticBezierCurve(rl.Vector2{X: 200, Y: 200}, rl.Vector2{X: 600, Y: 0}, rl.Vector2{X: 500, Y: 500}, BEZIER_CURVE_STEPS),
+	}
 
 	dotCol := rl.Red
 	dotCol.A = 0xAA
@@ -32,20 +31,8 @@ func main() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.LightGray)
 
-		for i := 0; i < 10; i++ {
-			rl.DrawLineEx(s, e, 3.0, rl.Black)
-		}
-
-		for _, p := range pts_lb {
-			rl.DrawCircleV(p, line_thick, dotCol)
-		}
-
-		for i := 0; i < 10; i++ {
-			rl.DrawLineEx(pts_qb[i], pts_qb[i+1], 3.0, rl.Blue)
-		}
-
-		for _, p := range pts_qb {
-			rl.DrawCircleV(p, line_thick, dotCol)
+		for _, i := range curveList {
+			i.draw()
 		}
 
 		rl.EndDrawing()
@@ -54,37 +41,72 @@ func main() {
 	rl.CloseWindow()
 }
 
-func linearBezier(s rl.Vector2, e rl.Vector2, nSteps int32) []rl.Vector2 {
+type drawable interface {
+	draw()
+}
+
+type BezierCurveType int8
+
+const (
+	LINEAR    BezierCurveType = 1
+	QUADRATIC BezierCurveType = 2
+)
+
+type BezierCurve struct {
+	curveType      BezierCurveType
+	nSteps         int
+	pts            []rl.Vector2
+	line_thickness float32
+	line_color     rl.Color
+	vertex_color   rl.Color
+	vertex_size    float32
+}
+
+func (bc *BezierCurve) CurveDefaults() {
+
+	bc.line_color = rl.Black
+	bc.line_thickness = 3.0
+
+	bc.vertex_color = rl.Red
+	bc.vertex_size = 5.0
+}
+
+func CreateLinearBezierCurve(p0, p1 rl.Vector2, nSteps int) BezierCurve {
 	// a straight line! basically learp
 
-	pts := make([]rl.Vector2, nSteps)
+	pts := make([]rl.Vector2, nSteps+1)
 
 	step := 1.0 / float32(nSteps)
-	var i int32
+	var i int
 
-	for i = 0; i < nSteps; i++ {
+	for i = 0; i <= nSteps; i++ {
 
 		a := float32(i) * step
 
 		b := rl.Vector2{X: a, Y: a}
 		c := rl.Vector2{X: 1.0 - a, Y: 1.0 - a}
 
-		pts[i] = rl.Vector2Add(rl.Vector2Multiply(s, c), rl.Vector2Multiply(e, b))
+		pts[i] = rl.Vector2Add(rl.Vector2Multiply(p0, c), rl.Vector2Multiply(p1, b))
 	}
 
-	return pts
+	var bc BezierCurve
+	bc.CurveDefaults()
+	bc.nSteps = nSteps
+	bc.pts = pts
+	bc.curveType = LINEAR
+
+	return bc
 }
 
-func quadraticBezier(p0, p1, p2 rl.Vector2, nSteps int32) []rl.Vector2 {
-
+func CreateQuadraticBezierCurve(p0, p1, p2 rl.Vector2, nSteps int) BezierCurve {
 	// a straight line! basically learp
-
 	pts := make([]rl.Vector2, nSteps+1)
 
 	step := 1.0 / float32(nSteps)
-	var i int32
+	var i int
 
-	for i = 0; i < nSteps; i++ {
+	for i = 0; i <= nSteps; i++ {
+
 		t := float32(i) * step
 
 		x := p1.X + (1-t)*(1-t)*(p0.X-p1.X) + t*t*(p2.X-p1.X)
@@ -94,7 +116,28 @@ func quadraticBezier(p0, p1, p2 rl.Vector2, nSteps int32) []rl.Vector2 {
 
 	}
 
-	pts[nSteps] = p2
+	var bc BezierCurve
+	bc.CurveDefaults()
+	bc.nSteps = nSteps
+	bc.pts = pts
+	bc.curveType = QUADRATIC
 
-	return pts
+	return bc
 }
+
+func (c BezierCurve) draw() {
+
+	for i := 0; i <= c.nSteps-1; i++ {
+
+		fmt.Printf("%d , %d \n", i, i+1)
+
+		rl.DrawLineEx(c.pts[i], c.pts[i+1], 3.0, rl.Black)
+	}
+
+	for _, p := range c.pts {
+		rl.DrawCircleV(p, c.line_thickness, c.vertex_color)
+	}
+
+}
+
+type CurveList []BezierCurve
